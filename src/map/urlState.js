@@ -1,5 +1,6 @@
 export function getInitialState(defaults) {
-  const params = new URLSearchParams(window.location.search);
+  const url = new URL(window.location.href);
+  const params = [url.searchParams, new URLSearchParams(url.hash.replace(/^#/, ""))];
   return {
     mapId: readNumber(params, ["m", "mapId", "mapid"], defaults.mapId),
     zoom: readNumber(params, ["z", "zoom"], defaults.zoom),
@@ -11,21 +12,32 @@ export function getInitialState(defaults) {
 
 export function writeStateToUrl(state) {
   const url = new URL(window.location.href);
-  url.searchParams.set("m", state.mapId);
-  url.searchParams.set("z", state.zoom);
-  url.searchParams.set("p", state.plane);
-  url.searchParams.set("x", state.x);
-  url.searchParams.set("y", state.y);
+  const useHashState = url.hostname === "htmlpreview.github.io";
+  const params = useHashState ? new URLSearchParams(url.hash.replace(/^#/, "")) : url.searchParams;
+
+  params.set("m", state.mapId);
+  params.set("z", state.zoom);
+  params.set("p", state.plane);
+  params.set("x", state.x);
+  params.set("y", state.y);
+
+  if (useHashState) {
+    url.hash = params.toString();
+  }
+
   window.history.replaceState({}, "", url);
   return url;
 }
 
 function readNumber(params, keys, fallback) {
-  for (const key of keys) {
-    const value = params.get(key);
-    if (value !== null && value !== "") {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
+  const paramSets = Array.isArray(params) ? params : [params];
+  for (const paramSet of paramSets) {
+    for (const key of keys) {
+      const value = paramSet.get(key);
+      if (value !== null && value !== "") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+      }
     }
   }
   return fallback;
