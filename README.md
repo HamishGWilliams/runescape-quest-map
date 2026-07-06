@@ -4,7 +4,7 @@ Custom RuneScape 3 map workspace for building a fastest quest cape route tool.
 
 This starts as a small, editable Leaflet app that uses public RS3 map tiles and map metadata, then layers project-specific quest route data over the top.
 
-Repository-hosted static map: https://cdn.jsdelivr.net/gh/HamishGWilliams/runescape-quest-map@main/docs/index.html
+Repository-hosted static map: https://raw.githack.com/HamishGWilliams/runescape-quest-map/main/docs/index.html
 
 GitHub Pages target, after Pages is enabled in the repository settings: https://hamishgwilliams.github.io/runescape-quest-map/
 
@@ -49,7 +49,7 @@ pnpm build:docs
 
 The repository includes a manual GitHub Pages workflow in `.github/workflows/pages.yml`. GitHub Pages must be enabled for the repository before that workflow can deploy.
 
-Until Pages is enabled, the Obsidian iframe can use the committed `docs/` build through jsDelivr.
+Until Pages is enabled, the Obsidian iframe can use the committed `docs/` build through RawGitHack.
 
 ## Data Sources
 
