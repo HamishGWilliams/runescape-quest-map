@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RuneScape Quest Map</title>
+    <script type="module" crossorigin src="./assets/index-DYu1Jw5d.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BiUYbK09.css">
+  </head>
+  <body>
+    <div id="app">
+      <aside class="sidebar" aria-label="Map controls">
+        <div class="brand">
+          <span class="eyebrow">RS3 Route Lab</span>
+          <h1>Quest Map</h1>
+        </div>
+
+        <label class="field">
+          <span>Map</span>
+          <select id="map-select"></select>
+        </label>
+
+        <div class="field">
+          <span>Plane</span>
+          <div class="segmented" role="group" aria-label="Plane selector">
+            <button type="button" data-plane="0" class="active">0</button>
+            <button type="button" data-plane="1">1</button>
+            <button type="button" data-plane="2">2</button>
+            <button type="button" data-plane="3">3</button>
+          </div>
+        </div>
+
+        <label class="toggle">
+          <input id="icon-toggle" type="checkbox" checked />
+          <span>Icon tile layer</span>
+        </label>
+
+        <label class="toggle">
+          <input id="overlay-toggle" type="checkbox" checked />
+          <span>Quest overlay</span>
+        </label>
+
+        <div class="coordinate-card">
+          <span>Center</span>
+          <output id="coordinate-readout">x: -, y: -, z: -</output>
+        </div>
+
+        <div class="actions">
+          <button id="copy-link" type="button">Copy map link</button>
+          <button id="add-marker" type="button">Add marker at center</button>
+        </div>
+
+        <section class="panel">
+          <h2>Overlay features</h2>
+          <div id="feature-list" class="feature-list"></div>
+        </section>
+      </aside>
+
+      <main class="map-shell">
+        <div id="map" aria-label="RuneScape 3 map"></div>
+      </main>
+    </div>
+  </body>
+</html>
