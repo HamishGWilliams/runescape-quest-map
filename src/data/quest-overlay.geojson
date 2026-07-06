@@ -1,0 +1,74 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "Lumbridge Castle",
+        "description": "Starter surface reference point for early route planning.",
+        "type": "hub",
+        "mapID": 28,
+        "plane": 0,
+        "fill": "#F59E0B",
+        "stroke": "#78350F"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3222, 3218, 0]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "Cook's Assistant start",
+        "description": "Quest-start seed marker; verify exact NPC interaction tile before route use.",
+        "type": "quest-start",
+        "mapID": 28,
+        "plane": 0,
+        "fill": "#22C55E",
+        "stroke": "#14532D"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3208, 3215, 0]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "Varrock reference",
+        "description": "Reference marker for early route expansion and teleport comparisons.",
+        "type": "hub",
+        "mapID": 28,
+        "plane": 0,
+        "fill": "#38BDF8",
+        "stroke": "#0F172A"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3210, 3424, 0]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "Early route sketch",
+        "description": "A deliberately rough route line for testing overlay behaviour, not an optimized route.",
+        "type": "route-draft",
+        "mapID": 28,
+        "plane": 0,
+        "stroke": "#FFFFFF",
+        "stroke-width": 4,
+        "stroke-opacity": 0.85
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [3222, 3218, 0],
+          [3208, 3215, 0],
+          [3210, 3424, 0]
+        ]
+      }
+    }
+  ]
+}
