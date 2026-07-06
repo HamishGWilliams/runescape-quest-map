@@ -1,6 +1,7 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./styles.css";
+import questOverlayUrl from "./data/quest-overlay.geojson?url";
 import { RsTileLayer } from "./map/rsTileLayer.js";
 import { getInitialState, writeStateToUrl } from "./map/urlState.js";
 
@@ -125,7 +126,7 @@ async function loadBasemaps() {
 }
 
 async function loadQuestOverlay() {
-  const response = await fetch("/src/data/quest-overlay.geojson");
+  const response = await fetch(questOverlayUrl);
   if (!response.ok) {
     throw new Error(`Unable to load quest overlay: ${response.status}`);
   }

@@ -4,6 +4,8 @@ Custom RuneScape 3 map workspace for building a fastest quest cape route tool.
 
 This starts as a small, editable Leaflet app that uses public RS3 map tiles and map metadata, then layers project-specific quest route data over the top.
 
+Live map: https://hamishgwilliams.github.io/runescape-quest-map/
+
 ## Current Features
 
 - RuneScape surface map using RS3 tile images.
@@ -34,6 +36,10 @@ Open the local URL printed by Vite.
 ```bash
 pnpm build
 ```
+
+## Deploy
+
+Pushing to `main` runs the GitHub Pages workflow in `.github/workflows/pages.yml`. The production build is configured for the `/runescape-quest-map/` GitHub Pages path.
 
 ## Data Sources
 
