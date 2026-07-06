@@ -1,5 +1,6 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import * as XLSX from "xlsx";
 import "./styles.css";
 import questOverlayUrl from "./data/quest-overlay.geojson?url";
 import { RsTileLayer } from "./map/rsTileLayer.js";
@@ -15,9 +16,20 @@ const planeButtons = Array.from(document.querySelectorAll("[data-plane]"));
 const iconToggle = document.querySelector("#icon-toggle");
 const overlayToggle = document.querySelector("#overlay-toggle");
 const coordinateReadout = document.querySelector("#coordinate-readout");
+const pointerReadout = document.querySelector("#pointer-readout");
+const pointReadout = document.querySelector("#point-readout");
+const areaReadout = document.querySelector("#area-readout");
+const pickPointButton = document.querySelector("#pick-point");
+const selectAreaButton = document.querySelector("#select-area");
+const clearSelectionButton = document.querySelector("#clear-selection");
+const copyPointButton = document.querySelector("#copy-point");
+const copyAreaButton = document.querySelector("#copy-area");
+const workbookInput = document.querySelector("#workbook-input");
+const workbookStatus = document.querySelector("#workbook-status");
 const copyLinkButton = document.querySelector("#copy-link");
 const addMarkerButton = document.querySelector("#add-marker");
 const featureList = document.querySelector("#feature-list");
+const mapShell = document.querySelector(".map-shell");
 
 const state = getInitialState({
   mapId: SURFACE_MAP_ID,
@@ -90,8 +102,40 @@ const overlayLayer = L.geoJSON(null, {
   },
 }).addTo(map);
 
+const workbookLayer = L.geoJSON(null, {
+  pointToLayer: (feature, latlng) =>
+    L.circleMarker(latlng, {
+      radius: 6,
+      weight: 2,
+      color: "#7C2D12",
+      fillColor: "#FB923C",
+      fillOpacity: 0.92,
+    }),
+  style: () => ({
+    color: "#FB923C",
+    weight: 3,
+    opacity: 0.9,
+    fillColor: "#FB923C",
+    fillOpacity: 0.16,
+  }),
+  onEachFeature: (feature, layer) => {
+    const title = feature.properties?.title ?? "Workbook step";
+    const description = feature.properties?.description ?? "";
+    layer.bindPopup(`<strong>${escapeHtml(title)}</strong>${description ? `<p>${escapeHtml(description)}</p>` : ""}`);
+    layer.bindTooltip(title, { direction: "top", sticky: true });
+  },
+}).addTo(map);
+
+const selectionLayer = L.layerGroup().addTo(map);
+
 let basemaps = [];
 let markerCounter = 0;
+let pickerMode = null;
+let selectedPoint = null;
+let selectedArea = null;
+let selectionStart = null;
+let selectionRectangle = null;
+let workbookFeatures = [];
 
 init();
 
@@ -100,6 +144,7 @@ async function init() {
   setPlane(state.plane);
   setMapId(state.mapId, false);
   updateReadout();
+  updateSelectionReadouts();
   bindEvents();
 }
 
@@ -137,6 +182,51 @@ async function loadQuestOverlay() {
 }
 
 function bindEvents() {
+  map.on("mousemove", (event) => {
+    pointerReadout.value = formatPoint(latLngToPoint(event.latlng));
+  });
+
+  map.on("click", (event) => {
+    if (pickerMode !== "point") return;
+    selectPoint(latLngToPoint(event.latlng));
+  });
+
+  map.on("mousedown", (event) => {
+    if (pickerMode !== "area" || event.originalEvent.button !== 0) return;
+    L.DomEvent.stop(event.originalEvent);
+    map.dragging.disable();
+    selectionStart = event.latlng;
+    selectionRectangle?.remove();
+    selectionRectangle = L.rectangle(L.latLngBounds(selectionStart, selectionStart), {
+      className: "coordinate-selection",
+    }).addTo(selectionLayer);
+  });
+
+  map.on("mousemove", (event) => {
+    if (!selectionStart || pickerMode !== "area") return;
+    const bounds = L.latLngBounds(selectionStart, event.latlng);
+    selectionRectangle.setBounds(bounds);
+    selectedArea = boundsToArea(bounds);
+    updateSelectionReadouts();
+  });
+
+  map.on("mouseup", (event) => {
+    if (!selectionStart || pickerMode !== "area") return;
+    L.DomEvent.stop(event.originalEvent);
+    const bounds = L.latLngBounds(selectionStart, event.latlng);
+    selectionRectangle.setBounds(bounds);
+    selectedArea = boundsToArea(bounds);
+    selectedPoint = {
+      mapId: getMapId(),
+      x: Math.round((selectedArea.minX + selectedArea.maxX) / 2),
+      y: Math.round((selectedArea.minY + selectedArea.maxY) / 2),
+      z: getPlane(),
+    };
+    selectionStart = null;
+    map.dragging.enable();
+    updateSelectionReadouts();
+  });
+
   map.on("moveend zoomend", () => {
     updateReadout();
     writeStateToUrl(getCurrentState());
@@ -161,9 +251,37 @@ function bindEvents() {
   overlayToggle.addEventListener("change", () => {
     if (overlayToggle.checked) {
       overlayLayer.addTo(map);
+      workbookLayer.addTo(map);
     } else {
       overlayLayer.remove();
+      workbookLayer.remove();
     }
+  });
+
+  pickPointButton.addEventListener("click", () => {
+    setPickerMode(pickerMode === "point" ? null : "point");
+  });
+
+  selectAreaButton.addEventListener("click", () => {
+    setPickerMode(pickerMode === "area" ? null : "area");
+  });
+
+  clearSelectionButton.addEventListener("click", clearSelection);
+
+  copyPointButton.addEventListener("click", () => {
+    if (!selectedPoint) return;
+    copyText(formatPointForSpreadsheet(selectedPoint), copyPointButton);
+  });
+
+  copyAreaButton.addEventListener("click", () => {
+    if (!selectedArea) return;
+    copyText(formatAreaForSpreadsheet(selectedArea, selectedPoint), copyAreaButton);
+  });
+
+  workbookInput.addEventListener("change", async () => {
+    const file = workbookInput.files?.[0];
+    if (!file) return;
+    await loadWorkbook(file);
   });
 
   copyLinkButton.addEventListener("click", async () => {
@@ -214,6 +332,7 @@ function setMapId(mapId, moveToCenter) {
 
   updateReadout();
   writeStateToUrl(getCurrentState());
+  syncWorkbookLayer();
 }
 
 function setPlane(plane) {
@@ -223,7 +342,13 @@ function setPlane(plane) {
     button.classList.toggle("active", Number(button.dataset.plane) === plane);
   });
   updateReadout();
+  updateSelectionReadouts();
   writeStateToUrl(getCurrentState());
+  syncWorkbookLayer();
+}
+
+function getMapId() {
+  return baseTiles.options.mapId;
 }
 
 function getPlane() {
@@ -233,7 +358,7 @@ function getPlane() {
 function getCurrentState() {
   const center = map.getCenter();
   return {
-    mapId: baseTiles.options.mapId,
+    mapId: getMapId(),
     zoom: map.getZoom(),
     plane: getPlane(),
     x: Math.round(center.lng),
@@ -248,20 +373,16 @@ function updateReadout() {
 
 function renderFeatureList() {
   const rows = [];
-  overlayLayer.eachLayer((layer) => {
-    const item = layer.feature;
-    const title = item?.properties?.title ?? "Untitled feature";
-    const coords = item?.geometry?.coordinates ?? [];
-    rows.push({ title, coords, layer });
-  });
+  addLayerRows(overlayLayer, rows);
+  addLayerRows(workbookLayer, rows);
 
   featureList.replaceChildren(
     ...rows.map((row) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.innerHTML = `<strong>${escapeHtml(row.title)}</strong><span>${formatCoords(row.coords)}</span>`;
+      button.innerHTML = `<strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.detail)}</span>`;
       button.addEventListener("click", () => {
-        const [x, y, plane = getPlane()] = row.coords;
+        const { x, y, plane = getPlane() } = row.target;
         setPlane(Number(plane));
         map.flyTo([y, x], Math.max(map.getZoom(), 3), { duration: 0.8 });
         row.layer.openPopup();
@@ -271,9 +392,269 @@ function renderFeatureList() {
   );
 }
 
-function formatCoords(coords) {
-  if (!Array.isArray(coords) || coords.length < 2) return "No coordinates";
-  return `${Math.round(coords[0])}, ${Math.round(coords[1])}, ${coords[2] ?? 0}`;
+function addLayerRows(layerGroup, rows) {
+  layerGroup.eachLayer((layer) => {
+    const feature = layer.feature;
+    const title = feature?.properties?.title ?? "Untitled feature";
+    const target = getFeatureTarget(feature);
+    if (!target) return;
+    rows.push({
+      title,
+      target,
+      detail: target ? formatPoint(target) : "No coordinates",
+      layer,
+    });
+  });
+}
+
+function getFeatureTarget(feature) {
+  const geometry = feature?.geometry;
+  if (!geometry) return null;
+
+  if (geometry.type === "Point") {
+    const [x, y, plane = getPlane()] = geometry.coordinates ?? [];
+    return { x: Math.round(x), y: Math.round(y), z: Number(plane), plane: Number(plane) };
+  }
+
+  if (geometry.type === "Polygon") {
+    const ring = geometry.coordinates?.[0] ?? [];
+    const xs = ring.map((coord) => Number(coord[0])).filter(Number.isFinite);
+    const ys = ring.map((coord) => Number(coord[1])).filter(Number.isFinite);
+    if (!xs.length || !ys.length) return null;
+    const plane = Number(feature.properties?.plane ?? getPlane());
+    return {
+      x: Math.round((Math.min(...xs) + Math.max(...xs)) / 2),
+      y: Math.round((Math.min(...ys) + Math.max(...ys)) / 2),
+      z: plane,
+      plane,
+    };
+  }
+
+  if (geometry.type === "LineString") {
+    return coordsToTarget(geometry.coordinates);
+  }
+
+  return null;
+}
+
+function coordsToTarget(coords) {
+  if (!Array.isArray(coords) || coords.length < 2) return null;
+  const [x, y, plane = getPlane()] = Array.isArray(coords[0]) ? coords[0] : coords;
+  return { x: Math.round(x), y: Math.round(y), z: Number(plane), plane: Number(plane) };
+}
+
+function setPickerMode(mode) {
+  pickerMode = mode;
+  pickPointButton.classList.toggle("active", mode === "point");
+  selectAreaButton.classList.toggle("active", mode === "area");
+  mapShell.classList.toggle("picking-point", mode === "point");
+  mapShell.classList.toggle("selecting-area", mode === "area");
+  if (mode !== "area") {
+    selectionStart = null;
+    map.dragging.enable();
+  }
+  if (mode === "area") {
+    map.dragging.disable();
+  }
+}
+
+function selectPoint(point) {
+  selectedPoint = point;
+  selectionLayer.clearLayers();
+  L.circleMarker([point.y, point.x], {
+    radius: 7,
+    weight: 2,
+    color: "#FACC15",
+    fillColor: "#FDE68A",
+    fillOpacity: 0.96,
+  }).addTo(selectionLayer);
+  if (selectedArea) {
+    selectionRectangle = areaToRectangle(selectedArea).addTo(selectionLayer);
+  }
+  updateSelectionReadouts();
+}
+
+function clearSelection() {
+  selectedPoint = null;
+  selectedArea = null;
+  selectionStart = null;
+  selectionRectangle = null;
+  selectionLayer.clearLayers();
+  updateSelectionReadouts();
+}
+
+function latLngToPoint(latlng) {
+  return {
+    mapId: getMapId(),
+    x: Math.round(latlng.lng),
+    y: Math.round(latlng.lat),
+    z: getPlane(),
+  };
+}
+
+function boundsToArea(bounds) {
+  const west = Math.round(bounds.getWest());
+  const east = Math.round(bounds.getEast());
+  const south = Math.round(bounds.getSouth());
+  const north = Math.round(bounds.getNorth());
+  return {
+    mapId: getMapId(),
+    minX: Math.min(west, east),
+    minY: Math.min(south, north),
+    maxX: Math.max(west, east),
+    maxY: Math.max(south, north),
+    z: getPlane(),
+  };
+}
+
+function areaToRectangle(area) {
+  return L.rectangle(
+    L.latLngBounds([area.minY, area.minX], [area.maxY, area.maxX]),
+    { className: "coordinate-selection" }
+  );
+}
+
+function updateSelectionReadouts() {
+  pointReadout.value = selectedPoint ? formatPoint(selectedPoint) : "not selected";
+  areaReadout.value = selectedArea ? formatArea(selectedArea) : "not selected";
+}
+
+function formatPoint(point) {
+  if (!point) return "not selected";
+  return `m: ${point.mapId ?? getMapId()}, x: ${point.x}, y: ${point.y}, z: ${point.z ?? getPlane()}`;
+}
+
+function formatArea(area) {
+  if (!area) return "not selected";
+  return `m: ${area.mapId ?? getMapId()}, x: ${area.minX}-${area.maxX}, y: ${area.minY}-${area.maxY}, z: ${area.z}`;
+}
+
+function formatPointForSpreadsheet(point) {
+  return [point.mapId ?? getMapId(), point.z ?? getPlane(), point.x, point.y, point.z ?? getPlane()].join("\t");
+}
+
+function formatAreaForSpreadsheet(area, point) {
+  const centerPoint =
+    point ??
+    {
+      mapId: area.mapId,
+      x: Math.round((area.minX + area.maxX) / 2),
+      y: Math.round((area.minY + area.maxY) / 2),
+      z: area.z,
+    };
+  return [
+    area.mapId ?? getMapId(),
+    area.z ?? getPlane(),
+    centerPoint.x,
+    centerPoint.y,
+    centerPoint.z ?? area.z ?? getPlane(),
+    area.minX,
+    area.minY,
+    area.maxX,
+    area.maxY,
+    area.z ?? getPlane(),
+  ].join("\t");
+}
+
+async function copyText(text, button) {
+  await navigator.clipboard.writeText(text);
+  const original = button.textContent;
+  button.textContent = "Copied";
+  window.setTimeout(() => {
+    button.textContent = original;
+  }, 1200);
+}
+
+async function loadWorkbook(file) {
+  workbookStatus.value = "Loading...";
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheetName = workbook.SheetNames.includes("Quest Steps") ? "Quest Steps" : workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  workbookFeatures = rows.map(rowToFeature).filter(Boolean);
+  syncWorkbookLayer();
+  workbookStatus.value = `${workbookFeatures.length} mapped steps loaded`;
+}
+
+function syncWorkbookLayer() {
+  workbookLayer.clearLayers();
+  const currentMapId = getMapId();
+  const currentPlane = getPlane();
+  const visibleFeatures = workbookFeatures.filter((feature) => {
+    const mapId = Number(feature.properties?.mapID ?? currentMapId);
+    const plane = Number(feature.properties?.plane ?? currentPlane);
+    return mapId === currentMapId && plane === currentPlane;
+  });
+  workbookLayer.addData({
+    type: "FeatureCollection",
+    features: visibleFeatures,
+  });
+  renderFeatureList();
+}
+
+function rowToFeature(row) {
+  const mapId = readRowNumber(row, ["Map ID", "mapID", "MapID"]) ?? SURFACE_MAP_ID;
+  const x = readRowNumber(row, ["X"]);
+  const y = readRowNumber(row, ["Y"]);
+  const z = readRowNumber(row, ["Z", "Area Z", "Map Plane"]) ?? 0;
+  const minX = readRowNumber(row, ["Area Min X"]);
+  const minY = readRowNumber(row, ["Area Min Y"]);
+  const maxX = readRowNumber(row, ["Area Max X"]);
+  const maxY = readRowNumber(row, ["Area Max Y"]);
+  const hasPoint = Number.isFinite(x) && Number.isFinite(y);
+  const hasArea = [minX, minY, maxX, maxY].every(Number.isFinite);
+
+  if (!hasPoint && !hasArea) return null;
+
+  const stepId = readRowText(row, ["Step ID"]) || "Quest step";
+  const quest = readRowText(row, ["Quest"]);
+  const objective = readRowText(row, ["Objective"]);
+  const title = quest ? `${stepId} - ${quest}` : stepId;
+  const description = objective || readRowText(row, ["Notes"]);
+
+  if (hasArea) {
+    return {
+      type: "Feature",
+      properties: { title, description, type: "quest-area", mapID: mapId, plane: z },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [minX, minY, z],
+            [maxX, minY, z],
+            [maxX, maxY, z],
+            [minX, maxY, z],
+            [minX, minY, z],
+          ],
+        ],
+      },
+    };
+  }
+
+  return {
+    type: "Feature",
+    properties: { title, description, type: "quest-step", mapID: mapId, plane: z },
+    geometry: { type: "Point", coordinates: [x, y, z] },
+  };
+}
+
+function readRowNumber(row, names) {
+  for (const name of names) {
+    const value = row[name];
+    if (value === "" || value === undefined || value === null) continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function readRowText(row, names) {
+  for (const name of names) {
+    const value = row[name];
+    if (value !== "" && value !== undefined && value !== null) return String(value);
+  }
+  return "";
 }
 
 function escapeHtml(value) {

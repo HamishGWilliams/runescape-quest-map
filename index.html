@@ -43,6 +43,45 @@
           <output id="coordinate-readout">x: -, y: -, z: -</output>
         </div>
 
+        <section class="panel picker-panel">
+          <h2>Coordinate picker</h2>
+
+          <div class="actions split-actions">
+            <button id="pick-point" type="button">Pick point</button>
+            <button id="select-area" type="button">Select area</button>
+            <button id="clear-selection" type="button">Clear</button>
+          </div>
+
+          <div class="capture-grid">
+            <div>
+              <span>Pointer</span>
+              <output id="pointer-readout">x: -, y: -, z: -</output>
+            </div>
+            <div>
+              <span>Point</span>
+              <output id="point-readout">not selected</output>
+            </div>
+            <div>
+              <span>Area</span>
+              <output id="area-readout">not selected</output>
+            </div>
+          </div>
+
+          <div class="actions split-actions">
+            <button id="copy-point" type="button">Copy point</button>
+            <button id="copy-area" type="button">Copy area</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Quest steps workbook</h2>
+          <label class="file-button">
+            <input id="workbook-input" type="file" accept=".xlsx,.xls" />
+            <span>Load workbook</span>
+          </label>
+          <output id="workbook-status">No workbook loaded</output>
+        </section>
+
         <div class="actions">
           <button id="copy-link" type="button">Copy map link</button>
           <button id="add-marker" type="button">Add marker at center</button>
