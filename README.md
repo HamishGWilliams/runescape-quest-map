@@ -17,7 +17,7 @@ GitHub Pages target, after Pages is enabled in the repository settings: https://
 - Seed GeoJSON overlay for early quest-route experimentation.
 - Coordinate picker for point capture and rectangular area capture.
 - Quest-step composer that combines a captured location with guide metadata and copies a full, tab-separated workbook row.
-- Local quest-catalogue import with a searchable-style selector that fills the quest, quest/source IDs, next global step ID, next guide step number, and next location ID.
+- Local quest-catalogue import with a dropdown selector that fills the quest, quest/source IDs, next global step ID, next guide step number, and next location ID.
 - Local `.xlsx` quest-step workbook import for previewing mapped rows.
 - URL state for map ID, zoom, plane, x, and y.
 - Copyable map permalink.
