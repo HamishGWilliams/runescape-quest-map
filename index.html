@@ -81,20 +81,22 @@
 
           <div class="form-grid">
             <label class="field compact-field">
-              <span>Step ID</span>
-              <input id="step-id" type="text" placeholder="QS-0001" />
+              <span>Quest</span>
+              <select id="quest-select" disabled>
+                <option value="">Load the quest catalogue</option>
+              </select>
             </label>
             <label class="field compact-field">
               <span>Quest ID</span>
-              <input id="quest-id" type="text" placeholder="Q-0001" />
+              <input id="quest-id" type="text" readonly placeholder="Auto-filled" />
             </label>
             <label class="field compact-field full-width">
-              <span>Quest</span>
-              <input id="quest-name" type="text" placeholder="Quest name" />
+              <span>Step ID</span>
+              <input id="step-id" type="text" readonly placeholder="Auto-filled" />
             </label>
             <label class="field compact-field">
               <span>Guide step</span>
-              <input id="source-step-number" type="text" inputmode="numeric" placeholder="1" />
+              <input id="source-step-number" type="text" readonly placeholder="Auto-filled" />
             </label>
             <label class="field compact-field">
               <span>Step type</span>
@@ -117,7 +119,7 @@
             </label>
             <label class="field compact-field">
               <span>Location ID</span>
-              <input id="location-id" type="text" placeholder="LOC-0001" />
+              <input id="location-id" type="text" readonly placeholder="Auto-filled" />
             </label>
             <label class="field compact-field">
               <span>NPC or object</span>
@@ -125,7 +127,7 @@
             </label>
             <label class="field compact-field">
               <span>Source ID</span>
-              <input id="source-id" type="text" placeholder="SRC-0001" />
+              <input id="source-id" type="text" readonly placeholder="Auto-filled from quest" />
             </label>
             <label class="field compact-field">
               <span>Status</span>
@@ -143,14 +145,19 @@
             <button id="copy-step-row" type="button">Copy complete row</button>
             <button id="reset-step-form" type="button">New step</button>
           </div>
-          <p class="helper-text">Copies a tab-separated row for column A. Select a blank workbook row, then paste.</p>
+          <p class="helper-text">Load the quest catalogue once, then select a quest. IDs and guide order are generated automatically; paste the copied row into column A.</p>
         </section>
 
         <section class="panel">
-          <h2>Quest steps workbook</h2>
+          <h2>Project workbooks</h2>
+          <label class="file-button">
+            <input id="quest-catalogue-input" type="file" accept=".xlsx,.xls" />
+            <span>Load quest catalogue</span>
+          </label>
+          <output id="quest-catalogue-status">Load once to enable quest selection</output>
           <label class="file-button">
             <input id="workbook-input" type="file" accept=".xlsx,.xls" />
-            <span>Load workbook</span>
+            <span>Load quest-step workbook</span>
           </label>
           <output id="workbook-status">No workbook loaded</output>
         </section>

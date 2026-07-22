@@ -24,9 +24,9 @@ const selectAreaButton = document.querySelector("#select-area");
 const clearSelectionButton = document.querySelector("#clear-selection");
 const copyPointButton = document.querySelector("#copy-point");
 const copyAreaButton = document.querySelector("#copy-area");
+const questSelect = document.querySelector("#quest-select");
 const stepIdInput = document.querySelector("#step-id");
 const questIdInput = document.querySelector("#quest-id");
-const questNameInput = document.querySelector("#quest-name");
 const sourceStepNumberInput = document.querySelector("#source-step-number");
 const stepTypeInput = document.querySelector("#step-type");
 const objectiveInput = document.querySelector("#objective");
@@ -37,6 +37,8 @@ const stepStatusInput = document.querySelector("#step-status");
 const captureHint = document.querySelector("#capture-hint");
 const copyStepRowButton = document.querySelector("#copy-step-row");
 const resetStepFormButton = document.querySelector("#reset-step-form");
+const questCatalogueInput = document.querySelector("#quest-catalogue-input");
+const questCatalogueStatus = document.querySelector("#quest-catalogue-status");
 const workbookInput = document.querySelector("#workbook-input");
 const workbookStatus = document.querySelector("#workbook-status");
 const copyLinkButton = document.querySelector("#copy-link");
@@ -150,6 +152,8 @@ let selectionStart = null;
 let selectionRectangle = null;
 let workbookFeatures = [];
 let workbookRows = [];
+let questCatalogue = [];
+let sessionRows = [];
 
 init();
 
@@ -287,10 +291,33 @@ function bindEvents() {
       captureHint.textContent = "Pick a point or area before copying a row.";
       return;
     }
-    copyText(formatStepRowForSpreadsheet(), copyStepRowButton);
+    if (!getSelectedQuest()) {
+      captureHint.textContent = "Load the quest catalogue and select a quest before copying a row.";
+      return;
+    }
+    const row = getStepRow();
+    copyText(row.join("\t"), copyStepRowButton);
+    sessionRows.push({
+      "Step ID": row[0],
+      "Quest ID": row[1],
+      "Source Step No.": row[3],
+      "Location ID": row[6],
+    });
+    refreshGeneratedFields();
   });
 
   resetStepFormButton.addEventListener("click", resetStepForm);
+
+  questSelect.addEventListener("change", () => {
+    applySelectedQuest();
+    refreshGeneratedFields();
+  });
+
+  questCatalogueInput.addEventListener("change", async () => {
+    const file = questCatalogueInput.files?.[0];
+    if (!file) return;
+    await loadQuestCatalogue(file);
+  });
 
   copyPointButton.addEventListener("click", () => {
     if (!selectedPoint) return;
@@ -585,15 +612,16 @@ function formatAreaForSpreadsheet(area, point) {
   ].join("\t");
 }
 
-function formatStepRowForSpreadsheet() {
+function getStepRow() {
   const point = selectedPoint ?? areaCenterPoint(selectedArea);
   const area = selectedArea;
   const mapUrl = writeStateToUrl(getCurrentState()).toString();
+  const quest = getSelectedQuest();
   return [
-    stepIdInput.value.trim() || getSuggestedStepId(),
-    questIdInput.value.trim(),
-    questNameInput.value.trim(),
-    sourceStepNumberInput.value.trim(),
+    stepIdInput.value,
+    questIdInput.value,
+    quest?.questName ?? "",
+    sourceStepNumberInput.value,
     stepTypeInput.value,
     objectiveInput.value.trim(),
     locationIdInput.value.trim(),
@@ -620,7 +648,7 @@ function formatStepRowForSpreadsheet() {
     stepStatusInput.value,
     "",
     mapUrl,
-  ].join("\t");
+  ];
 }
 
 function areaCenterPoint(area) {
@@ -633,30 +661,88 @@ function areaCenterPoint(area) {
 }
 
 function getSuggestedStepId() {
-  const highestId = workbookRows.reduce((highest, row) => {
+  const highestId = getAllStepRows().reduce((highest, row) => {
     const match = String(row["Step ID"] ?? "").match(/^QS-(\d+)$/i);
     return match ? Math.max(highest, Number(match[1])) : highest;
   }, 0);
   return `QS-${String(highestId + 1).padStart(4, "0")}`;
 }
 
+function getSuggestedGuideStepNumber(questId) {
+  const highestStep = getAllStepRows().reduce((highest, row) => {
+    if (String(row["Quest ID"] ?? "") !== questId) return highest;
+    const value = Number(row["Source Step No."]);
+    return Number.isFinite(value) ? Math.max(highest, value) : highest;
+  }, 0);
+  return String(highestStep + 1);
+}
+
+function getSuggestedLocationId() {
+  const highestId = getAllStepRows().reduce((highest, row) => {
+    const match = String(row["Location ID"] ?? "").match(/^LOC-(\d+)$/i);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0);
+  return `LOC-${String(highestId + 1).padStart(4, "0")}`;
+}
+
+function getAllStepRows() {
+  return [...workbookRows, ...sessionRows];
+}
+
+function getSelectedQuest() {
+  return questCatalogue.find((quest) => quest.questId === questSelect.value) ?? null;
+}
+
+function applySelectedQuest() {
+  const quest = getSelectedQuest();
+  questIdInput.value = quest?.questId ?? "";
+  sourceIdInput.value = quest?.sourceId ?? "";
+}
+
+function refreshGeneratedFields() {
+  const quest = getSelectedQuest();
+  stepIdInput.value = getSuggestedStepId();
+  locationIdInput.value = getSuggestedLocationId();
+  sourceStepNumberInput.value = quest ? getSuggestedGuideStepNumber(quest.questId) : "";
+  applySelectedQuest();
+}
+
 function resetStepForm() {
   [
-    stepIdInput,
-    questIdInput,
-    questNameInput,
-    sourceStepNumberInput,
     objectiveInput,
-    locationIdInput,
     npcObjectInput,
-    sourceIdInput,
   ].forEach((input) => {
     input.value = "";
   });
   stepTypeInput.value = "";
   stepStatusInput.value = "to collect";
-  stepIdInput.placeholder = getSuggestedStepId();
+  refreshGeneratedFields();
   objectiveInput.focus();
+}
+
+async function loadQuestCatalogue(file) {
+  questCatalogueStatus.value = "Loading...";
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheetName = workbook.SheetNames[0];
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: "" });
+  questCatalogue = rows
+    .map((row) => ({
+      questId: readRowText(row, ["Quest ID"]),
+      questName: readRowText(row, ["Quest"]),
+      sourceId: readRowText(row, ["Source ID"]),
+    }))
+    .filter((quest) => quest.questId && quest.questName)
+    .sort((a, b) => a.questName.localeCompare(b.questName));
+
+  questSelect.replaceChildren(
+    new Option("Choose a quest", ""),
+    ...questCatalogue.map((quest) => new Option(`${quest.questName} (${quest.questId})`, quest.questId))
+  );
+  questSelect.disabled = !questCatalogue.length;
+  questCatalogueStatus.value = `${questCatalogue.length} quests loaded`;
+  applySelectedQuest();
+  refreshGeneratedFields();
 }
 
 async function copyText(text, button) {
@@ -678,7 +764,7 @@ async function loadWorkbook(file) {
   workbookRows = rows;
   workbookFeatures = rows.map(rowToFeature).filter(Boolean);
   syncWorkbookLayer();
-  stepIdInput.placeholder = getSuggestedStepId();
+  refreshGeneratedFields();
   workbookStatus.value = `${rows.length} steps loaded; ${workbookFeatures.length} mapped`;
 }
 
