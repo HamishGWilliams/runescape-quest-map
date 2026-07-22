@@ -103,6 +103,12 @@ textarea {
   padding: 8px 10px;
 }
 
+input[readonly] {
+  color: #bfdbfe;
+  background: #101827;
+  cursor: default;
+}
+
 textarea {
   min-height: 66px;
   resize: vertical;
