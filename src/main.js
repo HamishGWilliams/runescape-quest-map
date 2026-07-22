@@ -725,7 +725,7 @@ async function loadQuestCatalogue(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
   const sheetName = workbook.SheetNames[0];
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: "" });
+  const rows = readRowsFromHeader(workbook.Sheets[sheetName], "Quest ID");
   questCatalogue = rows
     .map((row) => ({
       questId: readRowText(row, ["Quest ID"]),
@@ -735,6 +735,14 @@ async function loadQuestCatalogue(file) {
     .filter((quest) => quest.questId && quest.questName)
     .sort((a, b) => a.questName.localeCompare(b.questName));
 
+  if (!questCatalogue.length) {
+    questSelect.replaceChildren(new Option("Quest ID header not found", ""));
+    questSelect.disabled = true;
+    questCatalogueStatus.value = "Could not find a Quest ID header in this workbook";
+    refreshGeneratedFields();
+    return;
+  }
+
   questSelect.replaceChildren(
     new Option("Choose a quest", ""),
     ...questCatalogue.map((quest) => new Option(`${quest.questName} (${quest.questId})`, quest.questId))
@@ -743,6 +751,22 @@ async function loadQuestCatalogue(file) {
   questCatalogueStatus.value = `${questCatalogue.length} quests loaded`;
   applySelectedQuest();
   refreshGeneratedFields();
+}
+
+function readRowsFromHeader(sheet, headerName) {
+  const rangeAddress = sheet?.["!ref"];
+  if (!rangeAddress) return [];
+
+  const range = XLSX.utils.decode_range(rangeAddress);
+  for (let row = range.s.r; row <= range.e.r; row += 1) {
+    for (let column = range.s.c; column <= range.e.c; column += 1) {
+      const cell = sheet[XLSX.utils.encode_cell({ r: row, c: column })];
+      if (String(cell?.v ?? "").trim() === headerName) {
+        return XLSX.utils.sheet_to_json(sheet, { defval: "", range: row });
+      }
+    }
+  }
+  return [];
 }
 
 async function copyText(text, button) {
