@@ -24,6 +24,19 @@ const selectAreaButton = document.querySelector("#select-area");
 const clearSelectionButton = document.querySelector("#clear-selection");
 const copyPointButton = document.querySelector("#copy-point");
 const copyAreaButton = document.querySelector("#copy-area");
+const stepIdInput = document.querySelector("#step-id");
+const questIdInput = document.querySelector("#quest-id");
+const questNameInput = document.querySelector("#quest-name");
+const sourceStepNumberInput = document.querySelector("#source-step-number");
+const stepTypeInput = document.querySelector("#step-type");
+const objectiveInput = document.querySelector("#objective");
+const locationIdInput = document.querySelector("#location-id");
+const npcObjectInput = document.querySelector("#npc-object");
+const sourceIdInput = document.querySelector("#source-id");
+const stepStatusInput = document.querySelector("#step-status");
+const captureHint = document.querySelector("#capture-hint");
+const copyStepRowButton = document.querySelector("#copy-step-row");
+const resetStepFormButton = document.querySelector("#reset-step-form");
 const workbookInput = document.querySelector("#workbook-input");
 const workbookStatus = document.querySelector("#workbook-status");
 const copyLinkButton = document.querySelector("#copy-link");
@@ -136,6 +149,7 @@ let selectedArea = null;
 let selectionStart = null;
 let selectionRectangle = null;
 let workbookFeatures = [];
+let workbookRows = [];
 
 init();
 
@@ -267,6 +281,16 @@ function bindEvents() {
   });
 
   clearSelectionButton.addEventListener("click", clearSelection);
+
+  copyStepRowButton.addEventListener("click", () => {
+    if (!selectedPoint && !selectedArea) {
+      captureHint.textContent = "Pick a point or area before copying a row.";
+      return;
+    }
+    copyText(formatStepRowForSpreadsheet(), copyStepRowButton);
+  });
+
+  resetStepFormButton.addEventListener("click", resetStepForm);
 
   copyPointButton.addEventListener("click", () => {
     if (!selectedPoint) return;
@@ -517,6 +541,11 @@ function areaToRectangle(area) {
 function updateSelectionReadouts() {
   pointReadout.value = selectedPoint ? formatPoint(selectedPoint) : "not selected";
   areaReadout.value = selectedArea ? formatArea(selectedArea) : "not selected";
+  captureHint.textContent = selectedArea
+    ? "Area captured. The row will use its centre point and bounds."
+    : selectedPoint
+      ? "Point captured. Complete the fields and copy the workbook row."
+      : "Pick a point or area, then add the step details.";
 }
 
 function formatPoint(point) {
@@ -556,6 +585,80 @@ function formatAreaForSpreadsheet(area, point) {
   ].join("\t");
 }
 
+function formatStepRowForSpreadsheet() {
+  const point = selectedPoint ?? areaCenterPoint(selectedArea);
+  const area = selectedArea;
+  const mapUrl = writeStateToUrl(getCurrentState()).toString();
+  return [
+    stepIdInput.value.trim() || getSuggestedStepId(),
+    questIdInput.value.trim(),
+    questNameInput.value.trim(),
+    sourceStepNumberInput.value.trim(),
+    stepTypeInput.value,
+    objectiveInput.value.trim(),
+    locationIdInput.value.trim(),
+    point.mapId ?? getMapId(),
+    point.z ?? getPlane(),
+    point.x,
+    point.y,
+    point.z ?? getPlane(),
+    area?.minX ?? "",
+    area?.minY ?? "",
+    area?.maxX ?? "",
+    area?.maxY ?? "",
+    area?.z ?? "",
+    "",
+    "",
+    "",
+    "",
+    npcObjectInput.value.trim(),
+    "",
+    "",
+    "",
+    "",
+    sourceIdInput.value.trim(),
+    stepStatusInput.value,
+    "",
+    mapUrl,
+  ].join("\t");
+}
+
+function areaCenterPoint(area) {
+  return {
+    mapId: area.mapId,
+    x: Math.round((area.minX + area.maxX) / 2),
+    y: Math.round((area.minY + area.maxY) / 2),
+    z: area.z,
+  };
+}
+
+function getSuggestedStepId() {
+  const highestId = workbookRows.reduce((highest, row) => {
+    const match = String(row["Step ID"] ?? "").match(/^QS-(\d+)$/i);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0);
+  return `QS-${String(highestId + 1).padStart(4, "0")}`;
+}
+
+function resetStepForm() {
+  [
+    stepIdInput,
+    questIdInput,
+    questNameInput,
+    sourceStepNumberInput,
+    objectiveInput,
+    locationIdInput,
+    npcObjectInput,
+    sourceIdInput,
+  ].forEach((input) => {
+    input.value = "";
+  });
+  stepTypeInput.value = "";
+  stepStatusInput.value = "to collect";
+  stepIdInput.placeholder = getSuggestedStepId();
+  objectiveInput.focus();
+}
+
 async function copyText(text, button) {
   await navigator.clipboard.writeText(text);
   const original = button.textContent;
@@ -572,9 +675,11 @@ async function loadWorkbook(file) {
   const sheetName = workbook.SheetNames.includes("Quest Steps") ? "Quest Steps" : workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  workbookRows = rows;
   workbookFeatures = rows.map(rowToFeature).filter(Boolean);
   syncWorkbookLayer();
-  workbookStatus.value = `${workbookFeatures.length} mapped steps loaded`;
+  stepIdInput.placeholder = getSuggestedStepId();
+  workbookStatus.value = `${rows.length} steps loaded; ${workbookFeatures.length} mapped`;
 }
 
 function syncWorkbookLayer() {

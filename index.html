@@ -68,9 +68,82 @@
           </div>
 
           <div class="actions split-actions">
-            <button id="copy-point" type="button">Copy point</button>
-            <button id="copy-area" type="button">Copy area</button>
+            <button id="copy-point" type="button">Copy coordinates</button>
+            <button id="copy-area" type="button">Copy area coordinates</button>
           </div>
+        </section>
+
+        <section class="panel composer-panel">
+          <div class="panel-heading">
+            <h2>Quest-step composer</h2>
+            <span id="capture-hint" class="helper-text">Pick a point or area, then add the step details.</span>
+          </div>
+
+          <div class="form-grid">
+            <label class="field compact-field">
+              <span>Step ID</span>
+              <input id="step-id" type="text" placeholder="QS-0001" />
+            </label>
+            <label class="field compact-field">
+              <span>Quest ID</span>
+              <input id="quest-id" type="text" placeholder="Q-0001" />
+            </label>
+            <label class="field compact-field full-width">
+              <span>Quest</span>
+              <input id="quest-name" type="text" placeholder="Quest name" />
+            </label>
+            <label class="field compact-field">
+              <span>Guide step</span>
+              <input id="source-step-number" type="text" inputmode="numeric" placeholder="1" />
+            </label>
+            <label class="field compact-field">
+              <span>Step type</span>
+              <select id="step-type">
+                <option value="">Choose type</option>
+                <option value="start">start</option>
+                <option value="dialogue">dialogue</option>
+                <option value="collect">collect</option>
+                <option value="use">use</option>
+                <option value="travel">travel</option>
+                <option value="combat">combat</option>
+                <option value="puzzle">puzzle</option>
+                <option value="unlock">unlock</option>
+                <option value="turn-in">turn-in</option>
+              </select>
+            </label>
+            <label class="field compact-field full-width">
+              <span>Objective</span>
+              <textarea id="objective" rows="2" placeholder="Concise, actionable instruction"></textarea>
+            </label>
+            <label class="field compact-field">
+              <span>Location ID</span>
+              <input id="location-id" type="text" placeholder="LOC-0001" />
+            </label>
+            <label class="field compact-field">
+              <span>NPC or object</span>
+              <input id="npc-object" type="text" placeholder="NPC, object, or tile" />
+            </label>
+            <label class="field compact-field">
+              <span>Source ID</span>
+              <input id="source-id" type="text" placeholder="SRC-0001" />
+            </label>
+            <label class="field compact-field">
+              <span>Status</span>
+              <select id="step-status">
+                <option value="to collect">to collect</option>
+                <option value="drafted">drafted</option>
+                <option value="checked">checked</option>
+                <option value="verified">verified</option>
+                <option value="blocked">blocked</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="actions split-actions">
+            <button id="copy-step-row" type="button">Copy complete row</button>
+            <button id="reset-step-form" type="button">New step</button>
+          </div>
+          <p class="helper-text">Copies a tab-separated row for column A. Select a blank workbook row, then paste.</p>
         </section>
 
         <section class="panel">

@@ -22,6 +22,7 @@ body,
 button,
 select,
 input,
+textarea,
 label {
   font: inherit;
 }
@@ -81,7 +82,9 @@ h2 {
 
 select,
 button,
-.file-button {
+.file-button,
+input,
+textarea {
   min-height: 38px;
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 8px;
@@ -94,6 +97,17 @@ select {
   padding: 0 10px;
 }
 
+input,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+}
+
+textarea {
+  min-height: 66px;
+  resize: vertical;
+}
+
 button,
 .file-button {
   cursor: pointer;
@@ -101,6 +115,8 @@ button,
 
 button:hover,
 select:hover,
+input:hover,
+textarea:hover,
 .file-button:hover {
   border-color: rgba(147, 197, 253, 0.75);
 }
@@ -145,6 +161,40 @@ input:focus-visible,
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 8px;
   background: #172033;
+}
+
+.panel-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compact-field {
+  gap: 5px;
+  font-size: 12px;
+}
+
+.compact-field span {
+  color: #93c5fd;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.helper-text {
+  margin: 0;
+  color: #a7b5c8;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .coordinate-card span,
