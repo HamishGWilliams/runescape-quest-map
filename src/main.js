@@ -118,14 +118,7 @@ const overlayLayer = L.geoJSON(null, {
 }).addTo(map);
 
 const workbookLayer = L.geoJSON(null, {
-  pointToLayer: (feature, latlng) =>
-    L.circleMarker(latlng, {
-      radius: 6,
-      weight: 2,
-      color: "#7C2D12",
-      fillColor: "#FB923C",
-      fillOpacity: 0.92,
-    }),
+  pointToLayer: (feature, latlng) => L.marker(latlng, { icon: createStepMarker(feature.properties?.stepLabel) }),
   style: () => ({
     color: "#FB923C",
     weight: 3,
@@ -311,6 +304,7 @@ function bindEvents() {
   questSelect.addEventListener("change", () => {
     applySelectedQuest();
     refreshGeneratedFields();
+    syncWorkbookLayer();
   });
 
   questCatalogueInput.addEventListener("change", async () => {
@@ -796,16 +790,84 @@ function syncWorkbookLayer() {
   workbookLayer.clearLayers();
   const currentMapId = getMapId();
   const currentPlane = getPlane();
+  const selectedQuest = getSelectedQuest();
   const visibleFeatures = workbookFeatures.filter((feature) => {
     const mapId = Number(feature.properties?.mapID ?? currentMapId);
     const plane = Number(feature.properties?.plane ?? currentPlane);
-    return mapId === currentMapId && plane === currentPlane;
+    const matchesQuest = !selectedQuest || feature.properties?.questId === selectedQuest.questId;
+    return mapId === currentMapId && plane === currentPlane && matchesQuest;
   });
   workbookLayer.addData({
     type: "FeatureCollection",
     features: visibleFeatures,
   });
+  if (selectedQuest) {
+    drawQuestRoute(visibleFeatures);
+  }
   renderFeatureList();
+}
+
+function drawQuestRoute(features) {
+  const points = features
+    .filter((feature) => feature.geometry?.type === "Point")
+    .sort(compareGuideSteps);
+  if (points.length < 2) return;
+
+  const coordinates = points.map((feature) => {
+    const [x, y] = feature.geometry.coordinates;
+    return [y, x];
+  });
+  const routeLine = L.polyline(coordinates, {
+    color: "#FBBF24",
+    weight: 4,
+    opacity: 0.92,
+    className: "quest-route-line",
+  });
+  routeLine.bindTooltip("Quest route", { sticky: true });
+  workbookLayer.addLayer(routeLine);
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const from = getFeatureTarget(points[index]);
+    const to = getFeatureTarget(points[index + 1]);
+    if (!from || !to) continue;
+    const arrow = L.marker([(from.y + to.y) / 2, (from.x + to.x) / 2], {
+      icon: createRouteArrow(from, to),
+      interactive: false,
+      keyboard: false,
+    });
+    workbookLayer.addLayer(arrow);
+  }
+}
+
+function compareGuideSteps(left, right) {
+  const leftValue = String(left.properties?.sourceStepNumber ?? "");
+  const rightValue = String(right.properties?.sourceStepNumber ?? "");
+  const leftNumber = Number(leftValue);
+  const rightNumber = Number(rightValue);
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return leftNumber - rightNumber;
+  if (Number.isFinite(leftNumber)) return -1;
+  if (Number.isFinite(rightNumber)) return 1;
+  return leftValue.localeCompare(rightValue, undefined, { numeric: true });
+}
+
+function createStepMarker(stepLabel) {
+  const label = escapeHtml(stepLabel || "?");
+  return L.divIcon({
+    className: "quest-step-icon",
+    html: `<span class="quest-step-number">${label}</span>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+}
+
+function createRouteArrow(from, to) {
+  const angle = Math.atan2(to.y - from.y, to.x - from.x) * (180 / Math.PI);
+  return L.divIcon({
+    className: "quest-route-arrow-icon",
+    html: `<span class="quest-route-arrow" style="--route-angle: ${angle}deg">&#9654;</span>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
 }
 
 function rowToFeature(row) {
@@ -823,15 +885,18 @@ function rowToFeature(row) {
   if (!hasPoint && !hasArea) return null;
 
   const stepId = readRowText(row, ["Step ID"]) || "Quest step";
+  const questId = readRowText(row, ["Quest ID"]);
   const quest = readRowText(row, ["Quest"]);
+  const sourceStepNumber = readRowText(row, ["Source Step No."]);
   const objective = readRowText(row, ["Objective"]);
   const title = quest ? `${stepId} - ${quest}` : stepId;
   const description = objective || readRowText(row, ["Notes"]);
+  const stepLabel = sourceStepNumber || stepId.replace(/^QS-0*/i, "") || "?";
 
   if (hasArea) {
     return {
       type: "Feature",
-      properties: { title, description, type: "quest-area", mapID: mapId, plane: z },
+      properties: { title, description, type: "quest-area", mapID: mapId, plane: z, questId, sourceStepNumber, stepLabel },
       geometry: {
         type: "Polygon",
         coordinates: [
@@ -849,7 +914,7 @@ function rowToFeature(row) {
 
   return {
     type: "Feature",
-    properties: { title, description, type: "quest-step", mapID: mapId, plane: z },
+    properties: { title, description, type: "quest-step", mapID: mapId, plane: z, questId, sourceStepNumber, stepLabel },
     geometry: { type: "Point", coordinates: [x, y, z] },
   };
 }

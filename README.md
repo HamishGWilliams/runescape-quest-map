@@ -19,6 +19,7 @@ GitHub Pages target, after Pages is enabled in the repository settings: https://
 - Quest-step composer that combines a captured location with guide metadata and copies a full, tab-separated workbook row.
 - Local quest-catalogue import with a dropdown selector that fills the quest, quest/source IDs, next global step ID, next guide step number, and next location ID.
 - Local `.xlsx` quest-step workbook import for previewing mapped rows.
+- Selected-quest route overlay: numbered step markers, connecting lines in guide-step order, and direction arrows on the active map and plane.
 - URL state for map ID, zoom, plane, x, and y.
 - Copyable map permalink.
 - Temporary "add marker at center" tool for quick route exploration.
